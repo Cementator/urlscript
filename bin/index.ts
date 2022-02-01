@@ -1,11 +1,14 @@
 #!/usr/bin/env node
+import axios from "axios";
+
 const fs = require('fs').promises;
 
 
 
 class parsingText {
 
-    textInside: string
+    textInside: string = ''
+    arrayOfUrls: string[] = []
 
     checkInput() {
 
@@ -16,7 +19,7 @@ class parsingText {
 
     }
 
-    async readFile(filePath) {
+    async readFile(filePath: string) {
         try {
             this.textInside = await fs.readFile(filePath, 'utf8')
             console.log(this.textInside)
@@ -26,18 +29,20 @@ class parsingText {
             process.exit(1);
         }
         this.findUrl()
+
+        await this.parseUrlResponse()
     }
 
-    async secondsTimeout(ms) {
+    async secondsTimeout(ms: number | undefined) {
         return new Promise((resolve) => {
             setTimeout(resolve, ms)
         })
     }
 
-    async findUrl() {
 
-        let newRow: any = /[\r\n]+/
-        let arrayOfUrls: string[] = []
+    findUrl() {
+
+
         let temporaryUrls: string[] = []
         let stateOfOpenBracket: number = 0
         let isBackSlashBeforeBracket: boolean = false
@@ -48,9 +53,13 @@ class parsingText {
 
             let character: any = this.textInside.charAt(i)
 
+            if(character==='\\'){
+                temporaryString = temporaryString.concat(character)
+            }
+
             if(stateOfOpenBracket === 1 && isBackSlashBeforeBracket === false){
-                if(character ===']'|| character === ' ' || character === /\r/ || character === /\n/){
-                    let foundUrl:string[] = temporaryString.match(/www\.[a-z0-9A-Z]\.[a-z0-9-A-Z]/)
+                if(character ===']'|| character ==='[' || character === ' ' || character === /\r/ || character === /\n/){
+                    let foundUrl:string[] | null = temporaryString.match(/www\.[a-z0-9A-Z]+\.[a-z0-9-A-Z]+/)
 
                     if(foundUrl !== null) {
                         temporaryUrls.push(foundUrl[0])
@@ -58,25 +67,27 @@ class parsingText {
                     temporaryString = ''
 
                 }
-                if(character !=='['|| character !==']'|| character !== /\r/ || character !== /\n/ || character !== ' '){
+                if((character !== '['&& character !== "]") && (character !== /\r/ && character !== /\n/) && (character !== ' ' && character !== '\\')){
                     temporaryString = temporaryString.concat(character)
                 }
 
             }
 
-            if(character = '['){
+            if(character === '['){
                 if(stateOfOpenBracket === 0){
                     if(temporaryString.charAt(temporaryString.length-1) === '\\') {
                         isBackSlashBeforeBracket = true
+                        temporaryString = ''
                     }
                 }
                 stateOfOpenBracket++
             }
-            else if(character = ']'){
+            else if(character === ']'){
                 if(stateOfOpenBracket === 1){
                     isBackSlashBeforeBracket = false
                     if(temporaryUrls.length > 0){
-                        arrayOfUrls.push(temporaryUrls[temporaryUrls.length-1])
+                        if(!this.arrayOfUrls.includes(temporaryUrls[temporaryUrls.length-1]))
+                        this.arrayOfUrls.push(temporaryUrls[temporaryUrls.length-1])
                         temporaryUrls = []
                     }
                 }
@@ -84,14 +95,18 @@ class parsingText {
             }
 
         }
-        console.log(arrayOfUrls)
+        console.log(this.arrayOfUrls)
     }
 
-    async parseText() {
-        const arr: any = ['a', 'b', 'c']
+    async parseUrlResponse() {
+        const arr: string[] = this.arrayOfUrls
 
         for (let data of arr) {
-            console.log(data)
+            await axios.get("https://" + data).then((response) =>{
+                console.log(response)
+            },(error)=>{
+                console.log(error)
+            })
             await this.secondsTimeout(1000)
         }
     }
@@ -102,6 +117,7 @@ const fileHandle: parsingText = new parsingText();
 fileHandle.checkInput()
 
 fileHandle.readFile(process.argv[2])
+
 
 
 // fileHandle.findUrl()

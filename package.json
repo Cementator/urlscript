@@ -13,6 +13,10 @@
     "parsetxt": "./bin/index.js"
   },
   "dependencies": {
+    "axios": "^0.25.0",
     "ts-node": "^10.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.5.5"
   }
 }
