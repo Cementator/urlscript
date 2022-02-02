@@ -1,6 +1,12 @@
 #!/usr/bin/env node
-import axios from "axios";
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
+import axios from "axios";
+import moment = require("moment");
+import cheerio = require("cheerio");
+import crypto = require("crypto")
 const fs = require('fs').promises;
 
 
@@ -53,7 +59,7 @@ class parsingText {
 
             let character: any = this.textInside.charAt(i)
 
-            if(character==='\\'){
+            if(character==='\\' && stateOfOpenBracket === 0){
                 temporaryString = temporaryString.concat(character)
             }
 
@@ -74,20 +80,23 @@ class parsingText {
             }
 
             if(character === '['){
+
                 if(stateOfOpenBracket === 0){
                     if(temporaryString.charAt(temporaryString.length-1) === '\\') {
                         isBackSlashBeforeBracket = true
                         temporaryString = ''
                     }
                 }
+
                 stateOfOpenBracket++
             }
+
             else if(character === ']'){
                 if(stateOfOpenBracket === 1){
                     isBackSlashBeforeBracket = false
                     if(temporaryUrls.length > 0){
                         if(!this.arrayOfUrls.includes(temporaryUrls[temporaryUrls.length-1]))
-                        this.arrayOfUrls.push(temporaryUrls[temporaryUrls.length-1])
+                            this.arrayOfUrls.push(temporaryUrls[temporaryUrls.length-1])
                         temporaryUrls = []
                     }
                 }
@@ -98,16 +107,53 @@ class parsingText {
         console.log(this.arrayOfUrls)
     }
 
+    encryptEmail(email:string) {
+
+        const secret = process.env.IM_SECRET
+        // @ts-ignore
+        let hashValue = crypto.createHash('sha256', secret)
+            .update(email)
+            .digest('hex');
+
+        return hashValue
+    }
+
     async parseUrlResponse() {
         const arr: string[] = this.arrayOfUrls
 
         for (let data of arr) {
+            let loadTime:number = 0
+            const beforeGet: number = moment.now()
             await axios.get("https://" + data).then((response) =>{
                 console.log(response)
+                loadTime = moment().diff(beforeGet)
+                console.log(loadTime)
+                if(response.status === 200){
+
+                    let url: string = data
+                    let title: string = cheerio.load(response.data)('title').text()
+                    let stringifiedData: string = response.data.toString()
+                    let email: RegExpMatchArray = stringifiedData.match(/[a-z0-9A-Z]+\.?[a-z0-9A-Z]+@[a-z0-9A-Z]+\.[a-z0-9A-Z]+/) || []
+                    let encryptedEmail:string = ''
+
+
+                    if(email[0]){
+                       encryptedEmail = this.encryptEmail(email[0])
+                    }
+
+                    let pageInformations: any = {
+                        url: url,
+                        title: title || undefined,
+                        email: encryptedEmail  || undefined
+                    }
+                    console.log(pageInformations)
+                }
             },(error)=>{
                 console.log(error)
             })
-            await this.secondsTimeout(1000)
+            if(loadTime < 1000){
+                await this.secondsTimeout(1000 - loadTime)
+            }
         }
     }
 }
@@ -117,51 +163,3 @@ const fileHandle: parsingText = new parsingText();
 fileHandle.checkInput()
 
 fileHandle.readFile(process.argv[2])
-
-
-
-// fileHandle.findUrl()
-
-
-
-
-
-// let firstSplit:string[] = row.split(/\\\[[^\]]*\]/)
-//     for (let textNoSlash of firstSplit){
-//         textNoSlash.search(/\]/)
-//         let openBracketArray = textNoSlash.match(/\[/g)
-//         let closedBracketArray = textNoSlash.match(/\]/g)
-//         let openBracket = openBracketArray?openBracketArray.length : 0
-//         let closedBracket = closedBracketArray?closedBracketArray.length : 0
-//         if(closedBracket>openBracket){
-//         return
-//         } else {
-//             let textInsideBracket = textNoSlash.match(/\[[^]*\]/)
-//             if(textInsideBracket !==null){
-//                 let a= textInsideBracket[0].match(/www\.[a-z0-9A-Z]+\./g)
-//                 let blabla = textInsideBracket[0].match(/\][^\[\]]*\[/g)
-//                 console.log(textInsideBracket)
-//                 console.log(blabla)
-//                 if(blabla!==null){
-//                     for(let betweenBrackets of blabla){
-//                         // let removeBetween:any = textInsideBracket[0].match(`/\[[[^]${betweenBrackets}[^]]\]/`)
-//                         let removeBetween:any = textInsideBracket[0].search(`${betweenBrackets.substring(1,betweenBrackets.length-1)}`)
-//                         while ((indexOftext= (/\[/g).exec(textInsideBracket[0]))!==null)
-//                         console.log(indexof)
-//                         console.log(removeBetween)
-//                     }
-//                 }
-//
-//
-//             }
-//
-//         }
-//
-// }
-
-//let blabla = firstArray[0].match(/\][^]*\[/)
-
-
-// console.log(firstArray[0].split(blabla[0].substring(1, blabla[0].length-1)))
-// row.search(/\[/g)
-//  console.log(row.match(/\[[^]*\]/g))
