@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import axios from "axios";
 import moment = require("moment");
-import cheerio = require("cheerio")
+import cheerio = require("cheerio");
+// @ts-ignore
+import crypto = require("crypto")
 
 
 
@@ -84,26 +86,46 @@ class parsingText {
         }
         console.log(this.arrayOfUrls)
     }
+
+    encryptEmail(email:string) {
+
+        const secret = "grga"
+        // @ts-ignore
+        let hashValue = crypto.createHash('sha256', secret)
+            .update(email)
+            .digest('hex');
+
+        return hashValue
+    }
+
     async parseUrlResponse() {
         const arr: string[] = this.arrayOfUrls
-        let htmlFromResponse: string[] = []
 
         for (let data of arr) {
             let loadTime:number = 0
             const beforeGet: number = moment.now()
             await axios.get("https://" + data).then((response) =>{
-                console.log(response)
-                loadTime = moment().diff(beforeGet)
-                console.log(loadTime)
                 if(response.status === 200){
+
                     let url: string = data
                     let title: string = cheerio.load(response.data)('title').text()
                     let stringifiedData: string = response.data.toString()
                     let email: RegExpMatchArray = stringifiedData.match(/[a-z0-9A-Z]+\.?[a-z0-9A-Z]+@[a-z0-9A-Z]+\.[a-z0-9A-Z]+/) || []
-                    htmlFromResponse.push(response.data)
-                    console.log(title)
-                    console.log(url)
-                    console.log(email[0])
+                    let encryptedEmail:string = ''
+                    const afterGet:any = moment.now()
+                    loadTime = moment(afterGet).diff(beforeGet)
+
+                    if(email[0]){
+                        encryptedEmail = this.encryptEmail(email[0])
+                    }
+
+                    let pageInformations: any = {
+                        url: url,
+                        title: title || undefined,
+                        email: encryptedEmail  || undefined
+                    }
+                    process.stdout.write(JSON.stringify(pageInformations,null, )+ "\n")
+                    // process.stdout.write(/\n/)
                 }
             },(error)=>{
                 console.log(error)
@@ -113,6 +135,7 @@ class parsingText {
             }
         }
     }
+
     async secondsTimeout(ms: number | undefined) {
         return new Promise((resolve) => {
             setTimeout(resolve, ms)
