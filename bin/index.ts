@@ -21,7 +21,7 @@ class parsingText {
     checkInput() {
 
         if (process.argv.length < 3) {
-            console.log('Please input: text you want to parse fo urls');
+            console.log('Please input: text you want to parse for urls');
             process.stdin.on('data', (chunk) => {
                 this.textInside += chunk;
                 this.readInput()
